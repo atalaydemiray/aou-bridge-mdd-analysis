@@ -28,7 +28,7 @@ answers <- data.frame(
     40192465, 40192430, 40192429, 40192477, 40192424,
     40192465, 40192464, 40192453, 40192461, 40192391, 40192421
   ),
-  item_score = c(0:4, 0:4, NA)
+  item_score = c(0:4, 0:5)
 )
 
 item_rows <- vapply(seq_len(nrow(items)), function(i) {

@@ -27,9 +27,9 @@ workspace-specific paths may be committed.
 - PSS-10 scores each of 10 items from 0 to 4, reverse-scores four positively
   worded items, and requires at least 8 of 10 scored items. The completed-item
   mean is multiplied by 10, producing a prorated score from 0 to 40.
-- EDS-9 scores each of 9 items from 0 to 4 and requires at least 7 of 9 scored
+- EDS-9 scores each of 9 items from 0 to 5 and requires at least 7 of 9 scored
   items. The completed-item mean is multiplied by 9, producing a prorated
-  score from 0 to 36.
+  score from 0 to 45.
 - ACE scores each of 11 items as 1 for an adverse experience and 0 for no
   reported adverse experience, and requires at least 8 of 11 scored items.
   The completed-item mean is multiplied by 11, producing a prorated score

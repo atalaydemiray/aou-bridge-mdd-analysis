@@ -61,9 +61,9 @@ PSS-10 uses the ten reviewed question concept IDs and reverses items
 40192419, 40192525, 40192449, and 40192445. Responses are scored 0 through 4.
 With 8-10 scored responses, the completed-item mean is multiplied by 10.
 
-EDS-9 uses the nine reviewed question concept IDs. To reproduce the supplied
-component, response concept 40192421 remains unscored. With 7-9 scored
-responses, the completed-item mean is multiplied by 9.
+EDS-9 uses the nine reviewed question concept IDs. Responses are scored from 0
+(Never) to 5 (Almost every day). With 7-9 scored responses, the completed-item
+mean is multiplied by 9, producing a prorated score from 0 to 45.
 
 The modified ACE score uses the 11 reviewed childhood-adversity question
 concept IDs. Yes or any reported occurrence is scored 1, while No or Never is
