@@ -1,0 +1,31 @@
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.DS_Store
+
+# Workspace-specific configuration
+.Renviron
+.env
+
+# Participant-level or intermediate data must remain inside Researcher Workbench
+data/
+work/
+cache/
+results/
+outputs/
+*.rds
+*.rda
+*.rdata
+*.parquet
+*.feather
+*.fst
+*.sas7bdat
+*.dta
+*.xlsx
+
+# Query and runtime artifacts
+*.log
+*.html
+*.pdf
+session-info.txt
