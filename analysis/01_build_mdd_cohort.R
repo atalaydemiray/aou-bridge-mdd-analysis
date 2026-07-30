@@ -339,7 +339,7 @@ before_observability <- classified[classified_case_control, , drop = FALSE]
 
 cohort_flow <- data.frame(
   step = c(
-    "All All of Us participants",
+    "All of Us participants",
     "Age 18 years or older",
     "Age 18 years or older with EHR data",
     "Age 18 years or older with EHR and WGS data",
@@ -382,77 +382,166 @@ save_component(cohort_flow, "01_mdd_cohort_flow.rds")
 print(cohort_flow, row.names = FALSE)
 
 # Draw a reproducible manuscript flow diagram using only base R graphics.
+# Retained participants follow the central path. Exclusions appear in a
+# separate right-hand column so labels do not overlap the flow boxes.
+format_flow_n <- function(x) {
+  format(x, big.mark = ",", scientific = FALSE, trim = TRUE)
+}
+
 flow_pdf <- file.path(WORK_DIR, "Figure_cohort_flow.pdf")
-grDevices::pdf(flow_pdf, width = 8.5, height = 11)
-graphics::par(mar = rep(0.5, 4))
+grDevices::pdf(
+  flow_pdf,
+  width = 8.5,
+  height = 11,
+  title = "Participant selection and primary MDD cohort"
+)
+graphics::par(mar = rep(0.25, 4), family = "sans", xpd = NA)
 graphics::plot.new()
 graphics::plot.window(xlim = c(0, 1), ylim = c(0, 1))
 
-flow_y <- seq(0.94, 0.28, length.out = nrow(cohort_flow))
+graphics::text(
+  0.50, 0.975,
+  labels = "Participant selection and primary MDD cohort",
+  font = 2, cex = 1.05, col = "#18343B"
+)
+
+main_left <- 0.06
+main_right <- 0.69
+main_mid <- mean(c(main_left, main_right))
+exclusion_left <- 0.76
+exclusion_right <- 0.97
+box_half_height <- 0.027
+flow_y <- seq(0.91, 0.25, length.out = nrow(cohort_flow))
+
 for (i in seq_len(nrow(cohort_flow))) {
+  final_cohort_step <- i == nrow(cohort_flow)
+  box_fill <- if (final_cohort_step) "#DCEBF3" else "#F3F7F8"
+  box_border <- if (final_cohort_step) "#1F5A70" else "#355C64"
+  box_line_width <- if (final_cohort_step) 1.7 else 1.1
+
   graphics::rect(
-    0.12, flow_y[i] - 0.035, 0.88, flow_y[i] + 0.035,
-    border = "#2F4F4F", col = "#F4F7F7", lwd = 1.2
+    main_left, flow_y[i] - box_half_height,
+    main_right, flow_y[i] + box_half_height,
+    border = box_border, col = box_fill, lwd = box_line_width
+  )
+
+  count_label <- paste0("N = ", format_flow_n(cohort_flow$total_n[i]))
+  if (!is.na(cohort_flow$case_n[i])) {
+    count_label <- paste0(
+      count_label,
+      "  |  cases = ", format_flow_n(cohort_flow$case_n[i]),
+      "  |  controls = ", format_flow_n(cohort_flow$control_n[i])
+    )
+  }
+
+  graphics::text(
+    main_mid, flow_y[i] + 0.009,
+    labels = if (final_cohort_step) {
+      "Primary MDD cohort after one-year EHR observability"
+    } else {
+      cohort_flow$step[i]
+    },
+    cex = 0.67,
+    font = if (final_cohort_step) 2 else 1,
+    col = "#17282C"
   )
   graphics::text(
-    0.50, flow_y[i],
-    labels = paste0(
-      cohort_flow$step[i], "\nN = ",
-      format(cohort_flow$total_n[i], big.mark = ",", scientific = FALSE)
-    ),
-    cex = 0.78
+    main_mid, flow_y[i] - 0.011,
+    labels = count_label,
+    cex = 0.61,
+    col = "#243A3F"
   )
+
   if (i < nrow(cohort_flow)) {
+    connector_y <- mean(flow_y[c(i, i + 1L)])
+
     graphics::arrows(
-      0.50, flow_y[i] - 0.038, 0.50, flow_y[i + 1L] + 0.038,
-      length = 0.07, lwd = 1
+      main_mid, flow_y[i] - box_half_height,
+      main_mid, flow_y[i + 1L] + box_half_height,
+      length = 0.055, lwd = 1.0, col = "#33464A"
+    )
+    graphics::segments(
+      main_mid, connector_y, exclusion_left, connector_y,
+      lwd = 0.9, col = "#6C4B4B"
+    )
+    graphics::arrows(
+      exclusion_left - 0.02, connector_y,
+      exclusion_left, connector_y,
+      length = 0.045, lwd = 0.9, col = "#6C4B4B"
+    )
+    graphics::rect(
+      exclusion_left, connector_y - 0.019,
+      exclusion_right, connector_y + 0.019,
+      border = "#966B6B", col = "#FBF2F1", lwd = 0.9
     )
     graphics::text(
-      0.76, mean(flow_y[c(i, i + 1L)]),
+      mean(c(exclusion_left, exclusion_right)), connector_y,
       labels = paste0(
-        "Excluded: ",
-        format(
-          cohort_flow$excluded_from_prior[i + 1L],
-          big.mark = ",", scientific = FALSE
-        )
+        "Excluded, n = ",
+        format_flow_n(cohort_flow$excluded_from_prior[i + 1L])
       ),
-      cex = 0.64, adj = 0
+      cex = 0.58, col = "#583B3B"
     )
   }
 }
 
-final_y <- 0.12
+final_y <- 0.085
+case_left <- 0.07
+case_right <- 0.43
+control_left <- 0.57
+control_right <- 0.93
+final_half_height <- 0.040
+
 graphics::arrows(
-  0.50, flow_y[nrow(cohort_flow)] - 0.038,
-  0.28, final_y + 0.045, length = 0.07, lwd = 1
+  main_mid, flow_y[nrow(cohort_flow)] - box_half_height,
+  mean(c(case_left, case_right)), final_y + final_half_height,
+  length = 0.060, lwd = 1.1, col = "#33464A"
 )
 graphics::arrows(
-  0.50, flow_y[nrow(cohort_flow)] - 0.038,
-  0.72, final_y + 0.045, length = 0.07, lwd = 1
+  main_mid, flow_y[nrow(cohort_flow)] - box_half_height,
+  mean(c(control_left, control_right)), final_y + final_half_height,
+  length = 0.060, lwd = 1.1, col = "#33464A"
+)
+
+graphics::rect(
+  case_left, final_y - final_half_height,
+  case_right, final_y + final_half_height,
+  border = "#2D6176", col = "#E4F0F6", lwd = 1.5
 )
 graphics::rect(
-  0.08, final_y - 0.045, 0.46, final_y + 0.045,
-  border = "#2F4F4F", col = "#EAF3F8", lwd = 1.2
-)
-graphics::rect(
-  0.54, final_y - 0.045, 0.92, final_y + 0.045,
-  border = "#2F4F4F", col = "#EEF6EA", lwd = 1.2
+  control_left, final_y - final_half_height,
+  control_right, final_y + final_half_height,
+  border = "#55704B", col = "#EDF4E8", lwd = 1.5
 )
 graphics::text(
-  0.27, final_y,
-  labels = paste0(
-    "MDD cases\nN = ",
-    format(sum(mdd_cohort$mdd_case == 1L), big.mark = ",")
-  ),
-  cex = 0.82
+  mean(c(case_left, case_right)), final_y + 0.013,
+  labels = "MDD cases", font = 2, cex = 0.78, col = "#173B49"
 )
 graphics::text(
-  0.73, final_y,
+  mean(c(case_left, case_right)), final_y - 0.016,
   labels = paste0(
-    "Clean controls\nN = ",
-    format(sum(mdd_cohort$mdd_case == 0L), big.mark = ",")
+    "n = ", format_flow_n(cohort_flow$case_n[nrow(cohort_flow)])
   ),
-  cex = 0.82
+  cex = 0.72, col = "#173B49"
+)
+graphics::text(
+  mean(c(control_left, control_right)), final_y + 0.013,
+  labels = "Clean controls", font = 2, cex = 0.78, col = "#34492E"
+)
+graphics::text(
+  mean(c(control_left, control_right)), final_y - 0.016,
+  labels = paste0(
+    "n = ", format_flow_n(cohort_flow$control_n[nrow(cohort_flow)])
+  ),
+  cex = 0.72, col = "#34492E"
+)
+graphics::text(
+  0.50, 0.018,
+  labels = paste(
+    "Model-specific sample sizes may be smaller because of missing exposure,",
+    "genomic, or covariate data."
+  ),
+  cex = 0.47, col = "#4B5659"
 )
 grDevices::dev.off()
 
