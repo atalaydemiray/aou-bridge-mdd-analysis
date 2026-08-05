@@ -1,5 +1,8 @@
 # All of Us MDD (BRIDGE) manuscript analysis
 
+[![R code checks](https://github.com/atalaydemiray/aou-bridge-mdd-analysis/actions/workflows/r-code.yml/badge.svg?branch=main&event=push)](https://github.com/atalaydemiray/aou-bridge-mdd-analysis/actions/workflows/r-code.yml)
+[![Data-safety checks](https://github.com/atalaydemiray/aou-bridge-mdd-analysis/actions/workflows/data-safety.yml/badge.svg?branch=main&event=push)](https://github.com/atalaydemiray/aou-bridge-mdd-analysis/actions/workflows/data-safety.yml)
+
 This public R repository reproduces the data construction and planned
 statistical analysis for the BRIDGE group study of genetic liability,
 psychosocial exposures, and lifetime recorded major depressive disorder
@@ -7,6 +10,20 @@ psychosocial exposures, and lifetime recorded major depressive disorder
 
 No participant-level data, identifiers, credentials, bucket names, or
 workspace-specific paths may be committed.
+
+## Automated checks
+
+GitHub Actions runs two public-repository workflows after each push and pull
+request. The R code workflow parses every R script, exercises the production
+join and validation helpers with synthetic data, and verifies locked phenotype
+and scoring definitions. The data-safety workflow separately rejects tracked
+participant-data formats, credentials, cloud resource identifiers, and
+protected output directories.
+
+These checks use no All of Us participant data and do not rerun the live CDR or
+genomic analysis. Each passing badge confirms only its named public-repository
+check; final scientific validation still occurs inside the authorized
+Researcher Workbench.
 
 ## Primary analysis specification
 
