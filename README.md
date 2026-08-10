@@ -52,8 +52,15 @@ Researcher Workbench.
   The completed-item mean is multiplied by 11, producing a prorated score
   from 0 to 11. Other responses, including “Parents not married,” remain
   unscored.
-- The clinical adjustment is a 0-5 count of diabetes, heart disease,
+- An additional joint model adds a 0-5 count of diabetes, heart disease,
   hypertension, chronic kidney disease, and chronic pain.
+- The approved genomic component is keyed directly by `person_id`.
+  Participants with `flag == 1` or `related == 1` are excluded. Both supplied
+  MDD PRS values are adjusted across ancestry using PC1-PC5 before modeling.
+- The pooled analysis uses the diverse-population GWAS PRS. EUR-stratified
+  analysis uses the European GWAS PRS; AFR- and AMR-stratified analyses use
+  the diverse-population GWAS PRS. Each score is standardized in its final
+  analysis population.
 - The primary effect measure is the adjusted prevalence ratio from modified
   Poisson regression with robust standard errors.
 
@@ -77,9 +84,9 @@ provided only in the active R session and are never stored in the repository.
 | `03_build_pss_eds.R` | Build prorated PSS-10 (8+ items) and EDS-9 (7+ items) scores |
 | `04_build_ace.R` | Build the prorated ACE-11 score for participants with 8+ scored items |
 | `05_build_chronic_conditions.R` | Build the five-condition chronic disease count |
-| `06_import_genomics.R` | Import PRS, ancestry, and PCs |
-| `07_build_analytic_data.R` | Combine all components by `person_id` |
-| `08_manuscript_analysis_template.R` | Main and supplementary model template |
+| `06_import_genomics.R` | Apply genomic QC and import adjusted PRS, ancestry, and PCs |
+| `07_build_analytic_data.R` | Build the genomic-QC-eligible analytic cohort |
+| `08_run_manuscript_analysis.R` | Run pooled and ancestry-stratified manuscript models |
 | `99_build_data.R` | Run scripts 00 through 07 in order |
 
 ## Before starting
@@ -240,66 +247,47 @@ Figure_cohort_flow.pdf
 Do not download, commit, or move participant-level RDS files outside the
 authorized Workbench.
 
-## Step 6: Add genomics when the approved files are available
+## Step 6: Add the approved genomic component
 
-Script 01 uses the release-matched WGS availability flag for cohort
-eligibility. That flag confirms that WGS data are available; it is not a PRS,
-genomic ancestry assignment, or principal-component result. Script 06 does
-not calculate those genomic measures. Before running it, obtain two approved
-files inside the authorized Workbench:
+Script 01 uses the release-matched WGS availability flag for initial cohort
+eligibility. Script 06 then applies the approved participant-level genomic
+quality-control and relatedness exclusions and imports the supplied MDD PRS,
+genomic ancestry, and principal components.
 
-1. A one-row-per-participant genomic-results CSV or RDS file containing
-   `research_id`, `prs_trans_ancestry`, `genomic_ancestry`, and `PC1` through
-   `PC10`.
-2. A one-to-one CSV or RDS ID-bridge file containing `research_id` and the
-   corresponding AoU `person_id`.
+The approved component is one row per participant and contains:
 
-The genomic-results file must contain the finalized trans-ancestry MDD PRS,
-genomic ancestry assignment, and ancestry principal components produced by
-the genomic analysis. The ID bridge is needed because the genomic research
-identifier is not assumed to be the AoU `person_id`. The two identifiers must
-map one-to-one.
+| Field | Meaning |
+|---|---|
+| `person_id` | AoU participant join key |
+| `prs_mdd_div` | MDD PRS from the diverse-population GWAS |
+| `prs_mdd_eur` | MDD PRS from the European GWAS |
+| `ancestry_pred` | Genomic ancestry assignment |
+| `PC1` through `PC10` | Genomic principal components used in regression |
+| `flag` | `1` indicates failed genomic quality control |
+| `related` | `1` indicates a related participant selected for removal |
 
-Keep both files inside the authorized Workbench. Do not copy them into this
-repository or place their paths, identifiers, or bucket names in Git.
-Script 06 reads local CSV or RDS files. If an approved file is supplied as a
-`gs://` URI, first use `gsutil cp` in the Workbench Terminal to copy it into a
-directory outside the repository, such as `~/aou_bridge_mdd_inputs/`.
+Keep the file inside the authorized Workbench and outside this repository. Do
+not place its path, identifiers, or bucket name in Git. Script 06 reads local
+CSV, delimited TXT/TSV, or RDS files. If the approved file is supplied as a
+`gs://` URI, first copy it from the RStudio Terminal to a Workbench-local
+directory outside the repository.
 
-In the R Console, set the two file paths for the current session:
+In the R Console, provide the approved local path for the current session:
 
 ```r
 Sys.setenv(
   BRIDGE_MDD_GENOMICS_PATH =
-    "/path/inside/authorized/workbench/genomics_results.csv",
-  BRIDGE_MDD_ID_MAP_PATH =
-    "/path/inside/authorized/workbench/genomic_id_bridge.csv"
+    "/path/inside/authorized/workbench/prs_mdd_all.txt"
 )
 ```
 
-These are placeholders. Replace them with the approved local Workbench paths.
-Both inputs may be CSV or RDS files. `Sys.setenv()` changes only the active R
-session; it does not copy a file or write a path into Git. Repeat this command
-after restarting the R app or Console.
+This is a placeholder. `Sys.setenv()` changes only the active R session; it
+does not copy the file or save its path in Git. Repeat it after restarting the
+R app or Console.
 
-The default column names are:
-
-| File | Required column |
-|---|---|
-| Genomic results | `research_id` |
-| ID bridge | `research_id` |
-| ID bridge | `person_id` |
-
-If the supplied identifier columns have different names, set the relevant
-optional variables in the same R Console:
-
-```r
-Sys.setenv(
-  BRIDGE_MDD_GENOMICS_RESEARCH_ID = "genomic_file_id_column",
-  BRIDGE_MDD_MAP_RESEARCH_ID = "id_bridge_research_id_column",
-  BRIDGE_MDD_MAP_PERSON_ID = "id_bridge_person_id_column"
-)
-```
+If a required column has been renamed, the optional mapping variables are
+documented at the top of `analysis/06_import_genomics.R`. Do not change the
+meaning of a field merely to make an incompatible file run.
 
 Then run:
 
@@ -308,35 +296,56 @@ source("analysis/06_import_genomics.R")
 source("analysis/07_build_analytic_data.R")
 ```
 
-Script 06 verifies the required genomic columns, enforces one-to-one
-identifier mapping, converts the approved results to `person_id`, and writes
-`06_genomics.rds` inside the Workbench output folder. Script 07 left-joins
-every component to the MDD cohort by `person_id` and preserves missing values.
-Its completion message reports the fixed cohort size, the number matched to
-the genomic component, and the number with a nonmissing trans-ancestry PRS.
-Review those three numbers before running models.
+Script 06 requires unique nonmissing `person_id` values, binary nonmissing QC
+flags, finite PRS and PC values, and nonmissing ancestry. It removes
+`flag == 1` and `related == 1`, preserves both raw PRS values, and reproduces
+the supplied PC1-PC5 cross-ancestry adjustment. Script 07 then restricts the
+fixed MDD cohort to participants present in this QC-passed genomic component
+and left-joins demographics, surveys, and the chronic disease count.
 
-After setting both required path variables, the complete data build can
-instead be rerun with:
+Review these outputs before modeling:
+
+```r
+readRDS("~/aou_bridge_mdd_work/06_genomics_qc_flow.rds")
+readRDS("~/aou_bridge_mdd_work/07_analytic_cohort_flow.rds")
+```
+
+After setting the required path variable, the complete data build can instead
+be rerun with:
 
 ```r
 source("analysis/99_build_data.R")
 ```
 
-If the two required path variables are not set, script 99 ends successfully
+If the required path variable is not set, script 99 ends successfully
 after script 05 and explains that genomics is still pending. It does not run
 script 07 or create the final analytic data file.
 
-## Step 7: Run statistical models only when finalized
+## Step 7: Run the statistical models
 
-The model template is deliberately separate:
+After scripts 06 and 07 pass and the genomic-QC cohort flow is reviewed, run:
 
 ```r
-source("analysis/08_manuscript_analysis_template.R")
+source("analysis/08_run_manuscript_analysis.R")
 ```
 
-Run it only after the final analytical specification and genomic component
-are approved and scripts 06 and 07 have completed successfully.
+The pooled models use the diverse-population PRS. EUR-stratified models use
+the European PRS, while AFR- and AMR-stratified models use the diverse-
+population PRS. Script 08 standardizes each PRS and psychosocial score in its
+analysis population, fits modified Poisson models with HC0 robust standard
+errors, and saves model objects plus aggregate estimate and sample-size tables
+inside `~/aou_bridge_mdd_work`.
+
+Inspect at minimum:
+
+```r
+readRDS("~/aou_bridge_mdd_work/08_model_samples.rds")
+readRDS("~/aou_bridge_mdd_work/08_model_estimates.rds")
+```
+
+Do not interpret a model until its complete-case sample size, case count,
+control count, convergence, and fitted-prevalence diagnostic have been
+reviewed.
 
 ## Step 8: Stop the app
 
@@ -359,12 +368,14 @@ The beta tester should confirm:
 
 After the approved genomic files become available, also confirm:
 
-- script 06 reports that the genomic component was imported and mapped;
-- script 07 reports a nonzero genomic match and nonmissing PRS count;
+- script 06 reports nonzero raw and QC-passed genomic counts;
+- script 07 reports nonzero cases and controls after the genomic exclusions;
+- the genomic and analytic cohort-flow tables match the reviewed run;
 - `06_genomics.rds`, `07_analytic_data.rds`, and `07_run_metadata.rds` appear
-  in `~/aou_bridge_mdd_work`; and
-- script 08 is not run until the imported genomic component and model
-  specification are approved.
+  in `~/aou_bridge_mdd_work`;
+- script 08 completes for the pooled cohort and EUR, AFR, and AMR strata; and
+- every reported model has at least 20 cases and 20 controls and a reviewed
+  fitted-prevalence diagnostic.
 
 Record the Git commit shown by `git rev-parse --short HEAD` and report the
 exact script and full error message if any step fails.

@@ -205,13 +205,16 @@ read_component_file <- function(path) {
     stop("Component file does not exist: ", path, call. = FALSE)
   }
   extension <- tolower(tools::file_ext(path))
-  if (extension == "csv") {
+  if (extension %in% c("csv", "txt", "tsv", "tab")) {
     return(data.table::fread(path, data.table = FALSE))
   }
   if (extension == "rds") {
     return(readRDS(path))
   }
-  stop("Use a CSV or RDS component file: ", path, call. = FALSE)
+  stop(
+    "Use a CSV, TXT/TSV, or RDS component file: ", path,
+    call. = FALSE
+  )
 }
 
 .preflight_passed <- TRUE

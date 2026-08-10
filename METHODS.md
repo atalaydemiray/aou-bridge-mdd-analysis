@@ -82,23 +82,39 @@ dates separated by at least 30 days. The five indicators are summed into
 a chronic disease count ranging from 0 to 5. The count, rather than the five
 individual conditions, is used as the clinical adjustment variable.
 
-The genomic component supplies the trans-ancestry MDD PRS, genomic
-ancestry, and PC1-PC10. PRS construction is not duplicated in this repository.
+The genomic component is joined directly by `person_id` and supplies two MDD
+PRS values, genomic ancestry, PC1-PC10, a genomic quality-control flag, and a
+relatedness-removal flag. Participants with a failed genomic quality-control
+flag or a relatedness-removal flag are excluded. Both raw PRS values are
+preserved.
+
+The diverse-population and European GWAS PRS values are each adjusted across
+ancestry using the supplied PC1-PC5 procedure. The procedure regresses the raw
+PRS on PC1-PC5, regresses the squared mean-model residuals on the same PCs,
+and divides each mean-model residual by the square root of the absolute
+predicted residual variance. PRS construction itself is not duplicated in
+this repository.
 
 ## Statistical analysis
 
 The primary model is modified Poisson regression with a log link and robust
 standard errors, producing adjusted prevalence ratios. Planned analyses are:
 
-1. one core-adjusted model for each exposure;
-2. a joint main-effects model with PRS, PSS, EDS, and ACE;
-3. one PRS-by-psychosocial interaction at a time;
-4. an extended model adding the 0-5 chronic disease count; and
-5. ancestry-stratified and approved sensitivity analyses when the model
-   specification is finalized.
+1. one adjusted model for each exposure;
+2. a joint main-effects model with PRS, PSS, EDS, and ACE; and
+3. one joint-adjusted PRS-by-psychosocial interaction model at a time.
 
-Continuous exposures are standardized before modeling. Each model uses its
-own complete-case sample, and the sample size must accompany its result.
+Every primary model adjusts for age, sex at birth, and PC1-PC10. An additional
+joint model adds the 0-5 chronic disease count. The pooled analysis uses the
+diverse-population GWAS PRS. The EUR-stratified analysis uses the European
+GWAS PRS, while AFR- and AMR-stratified analyses use the diverse-population
+GWAS PRS. Other genomic-ancestry groups remain in the pooled analysis but are
+not included in this initial stratified set.
+
+Continuous exposures are standardized after selection of the pooled analytic
+cohort or ancestry stratum. Each model then uses its own complete-case sample,
+and its total sample, case count, and control count accompany the result.
+Income and education are not included in the current specification.
 
 ## Data protection
 

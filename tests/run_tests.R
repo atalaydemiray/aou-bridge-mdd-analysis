@@ -91,7 +91,10 @@ helpers$CDR <- "example-project.example_cdr"
 helpers$CDR_INDEX <- "example-project.example_cdr_index"
 load_assignments(
   "analysis/00_preflight.R",
-  c("bq_table", "bq_index_table", "sql_quote", "assert_unique_person", "join_component"),
+  c(
+    "bq_table", "bq_index_table", "sql_quote", "assert_unique_person",
+    "join_component", "read_component_file"
+  ),
   helpers
 )
 
@@ -150,6 +153,17 @@ check("left joins preserve the cohort and missingness", function() {
       "overlap"
     ),
     "replace existing columns"
+  )
+})
+
+check("delimited genomic component files are supported", function() {
+  path <- tempfile(fileext = ".txt")
+  on.exit(unlink(path), add = TRUE)
+  writeLines(c("person_id\tprs", "p1\t0.1", "p2\t0.2"), path)
+  component <- helpers$read_component_file(path)
+  stopifnot(
+    identical(component$person_id, c("p1", "p2")),
+    identical(component$prs, c(0.1, 0.2))
   )
 })
 
@@ -226,12 +240,59 @@ check("ACE-11 mapping and missing-answer rule remain locked", function() {
   )))
 })
 
-check("model template retains modified Poisson with HC0 covariance", function() {
-  code <- compact_source("analysis/08_manuscript_analysis_template.R")
+genomics <- new.env(parent = baseenv())
+load_assignments(
+  "analysis/06_import_genomics.R",
+  "adjust_pgs_across_ancestry",
+  genomics
+)
+
+check("cross-ancestry PRS adjustment returns finite varying values", function() {
+  set.seed(20260810)
+  synthetic <- data.frame(
+    prs = stats::rnorm(300),
+    PC1 = stats::rnorm(300),
+    PC2 = stats::rnorm(300),
+    PC3 = stats::rnorm(300),
+    PC4 = stats::rnorm(300),
+    PC5 = stats::rnorm(300)
+  )
+  adjusted <- genomics$adjust_pgs_across_ancestry(synthetic, "prs")
+  stopifnot(
+    length(adjusted) == nrow(synthetic),
+    all(is.finite(adjusted)),
+    stats::sd(adjusted) > 0
+  )
+})
+
+check("genomic QC and PRS source rules remain explicit", function() {
+  import_code <- compact_source("analysis/06_import_genomics.R")
+  analysis_code <- compact_source("analysis/08_run_manuscript_analysis.R")
+  stopifnot(
+    contains_all(import_code, c(
+      "qc_flag == 0L & related_flag == 0L",
+      "prs_mdd_div_raw",
+      "prs_mdd_eur_raw",
+      "prs_mdd_div_adjusted",
+      "prs_mdd_eur_adjusted",
+      "paste0(\"PC\", 1:5)"
+    )),
+    contains_all(analysis_code, c(
+      "\"Pooled\", \"prs_mdd_div_adjusted\"",
+      "\"prs_mdd_eur_adjusted\", \"prs_mdd_div_adjusted\", \"prs_mdd_div_adjusted\"",
+      "\"EUR\", \"AFR\", \"AMR\""
+    ))
+  )
+})
+
+check("manuscript models retain modified Poisson with HC0 covariance", function() {
+  code <- compact_source("analysis/08_run_manuscript_analysis.R")
   stopifnot(contains_all(code, c(
     "family = stats::poisson(link = \"log\")",
     "sandwich::vcovHC(model, type = \"HC0\")",
-    "clinical_covariates <- \"chronic_disease_count\""
+    "additional_clinical_covariate <- \"chronic_disease_count\"",
+    "models$joint_plus_chronic_count",
+    "primary_covariates"
   )))
 })
 

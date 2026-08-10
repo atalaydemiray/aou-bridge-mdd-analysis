@@ -1,11 +1,10 @@
-# Combine all study components into one analytic data frame.
+# Combine all study components into the genomic-QC-eligible analytic cohort.
 #
-# The MDD cohort is the row anchor. All components are left-joined by
-# person_id, so survey nonresponse remains missing rather than becoming zero.
-# WGS eligibility is already enforced in 01_build_mdd_cohort.R. The approved
-# genomic component adds PRS, ancestry, and PCs; it does not redefine the
-# cohort. Missing values remain available for model-specific complete-case
-# selection and reporting.
+# The MDD cohort is the initial row anchor. Participants without an approved
+# genomic record, participants who failed genomic quality control, and related
+# participants selected for removal are then excluded. Demographic, survey,
+# and clinical components are left-joined by person_id, so survey nonresponse
+# remains missing rather than becoming zero.
 
 if (!exists(".preflight_passed")) source("analysis/00_preflight.R")
 
@@ -22,14 +21,13 @@ components <- lapply(components, function(x) {
   x$person_id <- as.character(x$person_id)
   x
 })
-mdd <- components[[1]]
-demographics <- components[[2]]
-pss_eds <- components[[3]]
-ace <- components[[4]]
-chronic <- components[[5]]
-genomics <- components[[6]]
+mdd <- components[[1L]]
+demographics <- components[[2L]]
+pss_eds <- components[[3L]]
+ace <- components[[4L]]
+chronic <- components[[5L]]
+genomics <- components[[6L]]
 
-# The clinical adjustment uses one 0-5 chronic disease count.
 required_chronic_columns <- c("person_id", "chronic_disease_count")
 if (!all(required_chronic_columns %in% names(chronic))) {
   stop(
@@ -39,30 +37,53 @@ if (!all(required_chronic_columns %in% names(chronic))) {
 }
 chronic <- chronic[required_chronic_columns]
 
-analytic_data <- mdd
+# Script 06 contains only participants who passed genomic QC and relatedness
+# filters and who have both PRS values, ancestry, and PC1-PC10. Matching this
+# component is therefore an explicit analytic-cohort eligibility criterion.
+mdd_with_genomics <- join_component(mdd, genomics, "genomics")
+genomic_eligible <- !is.na(mdd_with_genomics$prs_mdd_div_adjusted) &
+  !is.na(mdd_with_genomics$prs_mdd_eur_adjusted)
+
+if (!any(genomic_eligible)) {
+  stop(
+    "No MDD cohort participant passed the genomic eligibility merge. ",
+    "Check the person_id key before proceeding.",
+    call. = FALSE
+  )
+}
+
+analytic_data <- mdd_with_genomics[genomic_eligible, , drop = FALSE]
 analytic_data <- join_component(analytic_data, demographics, "demographics")
 analytic_data <- join_component(analytic_data, pss_eds, "PSS/EDS")
 analytic_data <- join_component(analytic_data, ace, "ACE")
 analytic_data <- join_component(
   analytic_data, chronic, "chronic disease count"
 )
-analytic_data <- join_component(analytic_data, genomics, "genomics")
-
 assert_unique_person(analytic_data, "analytic data")
 
-# Confirm how much of the fixed MDD cohort received the imported genomic
-# component. Script 07 does not silently restrict the cohort to matched rows.
-genomic_match_n <- sum(analytic_data$person_id %in% genomics$person_id)
-prs_available_n <- sum(!is.na(analytic_data$prs_trans_ancestry))
-if (genomic_match_n == 0L) {
+if (any(!is.finite(analytic_data$prs_mdd_div_adjusted)) ||
+    any(!is.finite(analytic_data$prs_mdd_eur_adjusted)) ||
+    anyNA(analytic_data[paste0("PC", 1:10)])) {
   stop(
-    "No MDD cohort participant matched the imported genomic component. ",
-    "Check the ID bridge before proceeding.",
+    "The analytic cohort contains incomplete genomic model variables.",
     call. = FALSE
   )
 }
 
+count_cases <- function(x) sum(x$mdd_case == 1L)
+count_controls <- function(x) sum(x$mdd_case == 0L)
+analytic_cohort_flow <- data.frame(
+  step = c(
+    "EHR/WGS/survey-eligible MDD case-control cohort",
+    "After genomic QC, relatedness, and PRS availability"
+  ),
+  total_n = c(nrow(mdd), nrow(analytic_data)),
+  case_n = c(count_cases(mdd), count_cases(analytic_data)),
+  control_n = c(count_controls(mdd), count_controls(analytic_data))
+)
+
 save_component(analytic_data, "07_analytic_data.rds")
+save_component(analytic_cohort_flow, "07_analytic_cohort_flow.rds")
 
 # Record only reproducibility metadata; participant data remain in Workbench.
 git_commit <- tryCatch(
@@ -79,7 +100,7 @@ run_metadata <- list(
 save_component(run_metadata, "07_run_metadata.rds")
 
 message(
-  "Analytic data built with ", nrow(analytic_data), " participants; ",
-  genomic_match_n, " matched the genomic component and ",
-  prs_available_n, " had a nonmissing trans-ancestry PRS."
+  "Analytic cohort built: ", nrow(analytic_data), " participants; ",
+  count_cases(analytic_data), " MDD cases and ",
+  count_controls(analytic_data), " controls after genomic exclusions."
 )

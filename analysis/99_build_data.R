@@ -17,12 +17,8 @@ for (script in core_scripts) {
   source(script, local = .GlobalEnv)
 }
 
-genomic_path_variables <- c(
-  "BRIDGE_MDD_GENOMICS_PATH",
-  "BRIDGE_MDD_ID_MAP_PATH"
-)
-genomics_configured <- all(nzchar(
-  Sys.getenv(genomic_path_variables, unset = "")
+genomics_configured <- nzchar(Sys.getenv(
+  "BRIDGE_MDD_GENOMICS_PATH", unset = ""
 ))
 
 if (genomics_configured) {
@@ -36,7 +32,7 @@ if (genomics_configured) {
 } else {
   message(
     "\nCore build completed through script 05. ",
-    "Set BRIDGE_MDD_GENOMICS_PATH and BRIDGE_MDD_ID_MAP_PATH in the ",
+    "Set BRIDGE_MDD_GENOMICS_PATH in the ",
     "current R session before running scripts 06 and 07. See README Step 6."
   )
 }
