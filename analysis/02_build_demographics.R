@@ -19,6 +19,14 @@ WHERE p.year_of_birth IS NOT NULL"
 demographics <- run_query(sql)
 assert_unique_person(demographics, "demographics")
 
+# BigQuery returns this integer-valued expression as an integer64 vector.
+# Convert it while the Workbench query dependencies are loaded so the saved
+# component contains ordinary numeric years rather than integer64 bit patterns.
+demographics$age_years <- as.numeric(demographics$age_years)
+if (any(!is.finite(demographics$age_years))) {
+  stop("Age contains a missing or nonfinite value after conversion.", call. = FALSE)
+}
+
 # Keep the recorded label. The model script will treat unrecorded values as
 # missing rather than assuming Female or Male.
 demographics$sex_at_birth[

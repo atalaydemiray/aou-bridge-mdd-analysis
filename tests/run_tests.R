@@ -200,6 +200,14 @@ check("primary phenotype and observability rules remain explicit", function() {
   )))
 })
 
+check("demographic age is saved as ordinary numeric years", function() {
+  code <- compact_source("analysis/02_build_demographics.R")
+  stopifnot(contains_all(code, c(
+    "demographics$age_years <- as.numeric(demographics$age_years)",
+    "any(!is.finite(demographics$age_years))"
+  )))
+})
+
 scores <- new.env(parent = baseenv())
 load_assignments("analysis/03_build_pss_eds.R", c("items", "answers"), scores)
 
