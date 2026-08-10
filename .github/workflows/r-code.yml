@@ -21,5 +21,9 @@ jobs:
         with:
           r-version: '4.6.0'
           use-public-rspm: true
+      - name: Install R test dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::data.table
       - name: Run R code checks
         run: Rscript --vanilla tests/run_tests.R
