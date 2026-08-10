@@ -298,10 +298,14 @@ check("manuscript models retain modified Poisson with HC0 covariance", function(
   stopifnot(contains_all(code, c(
     "family = stats::poisson(link = \"log\")",
     "sandwich::vcovHC(model, type = \"HC0\")",
-    "additional_clinical_covariate <- \"chronic_disease_count\"",
-    "models$joint_plus_chronic_count",
+    "additional_clinical_covariate <- \"chronic_burden\"",
+    "models$joint_plus_chronic_burden",
+    "labels = c(\"0\", \"1\", \"2\", \"3\", \"4+\")",
+    "fitted_prevalence_above_one_n",
     "primary_covariates"
   )))
+  stopifnot(!grepl("family = stats::binomial", code, fixed = TRUE))
+  stopifnot(!grepl("pmin(fitted_prevalence, 1", code, fixed = TRUE))
 })
 
 cat("PASS: ", passed, " R code checks completed\n", sep = "")

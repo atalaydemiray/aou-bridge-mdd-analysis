@@ -78,9 +78,12 @@ Primary adjustment uses age, sex at birth, and genomic principal components.
 
 The clinical component contains diabetes, heart disease, hypertension,
 chronic kidney disease, and chronic pain. Each condition requires two diagnosis
-dates separated by at least 30 days. The five indicators are summed into
-a chronic disease count ranging from 0 to 5. The count, rather than the five
-individual conditions, is used as the clinical adjustment variable.
+dates separated by at least 30 days. The five indicators are summed into a
+chronic disease count ranging from 0 to 5. For the additional clinical-
+adjustment model, the count is represented as categories 0, 1, 2, 3, and 4 or
+more, with 0 as the reference. This avoids imposing a constant association for
+each one-condition increase. The individual condition indicators are not
+entered together as separate model covariates.
 
 The genomic component is joined directly by `person_id` and supplies two MDD
 PRS values, genomic ancestry, PC1-PC10, a genomic quality-control flag, and a
@@ -105,11 +108,15 @@ standard errors, producing adjusted prevalence ratios. Planned analyses are:
 3. one joint-adjusted PRS-by-psychosocial interaction model at a time.
 
 Every primary model adjusts for age, sex at birth, and PC1-PC10. An additional
-joint model adds the 0-5 chronic disease count. The pooled analysis uses the
-diverse-population GWAS PRS. The EUR-stratified analysis uses the European
-GWAS PRS, while AFR- and AMR-stratified analyses use the diverse-population
-GWAS PRS. Other genomic-ancestry groups remain in the pooled analysis but are
-not included in this initial stratified set.
+joint model adds categorical chronic disease burden (0, 1, 2, 3, or 4 or more).
+The pooled analysis uses the diverse-population GWAS PRS. The EUR-stratified
+analysis uses the European GWAS PRS, while AFR- and AMR-stratified analyses use
+the diverse-population GWAS PRS. Other genomic-ancestry groups remain in the
+pooled analysis but are not included in this initial stratified set.
+
+Modified Poisson models are fitted without capping fitted values and retain all
+eligible complete cases. Fitted values are reviewed as diagnostics and are not
+reported as individual predicted probabilities.
 
 Continuous exposures are standardized after selection of the pooled analytic
 cohort or ancestry stratum. Each model then uses its own complete-case sample,

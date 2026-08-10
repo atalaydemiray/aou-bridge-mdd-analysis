@@ -52,8 +52,10 @@ Researcher Workbench.
   The completed-item mean is multiplied by 11, producing a prorated score
   from 0 to 11. Other responses, including “Parents not married,” remain
   unscored.
-- An additional joint model adds a 0-5 count of diabetes, heart disease,
-  hypertension, chronic kidney disease, and chronic pain.
+- An additional joint model adjusts for the five-condition chronic disease
+  count as categories 0, 1, 2, 3, and 4 or more, with 0 as the reference.
+  This does not assume that each one-condition increase has the same
+  association with MDD prevalence.
 - The approved genomic component is keyed directly by `person_id`.
   Participants with `flag == 1` or `related == 1` are excluded. Both supplied
   MDD PRS values are adjusted across ancestry using PC1-PC5 before modeling.
@@ -301,7 +303,9 @@ flags, finite PRS and PC values, and nonmissing ancestry. It removes
 `flag == 1` and `related == 1`, preserves both raw PRS values, and reproduces
 the supplied PC1-PC5 cross-ancestry adjustment. Script 07 then restricts the
 fixed MDD cohort to participants present in this QC-passed genomic component
-and left-joins demographics, surveys, and the chronic disease count.
+and left-joins demographics, surveys, and the chronic disease count. Script 08
+uses that count as categories 0, 1, 2, 3, and 4 or more in the additional
+clinical-adjustment model.
 
 Review these outputs before modeling:
 
@@ -334,7 +338,9 @@ the European PRS, while AFR- and AMR-stratified models use the diverse-
 population PRS. Script 08 standardizes each PRS and psychosocial score in its
 analysis population, fits modified Poisson models with HC0 robust standard
 errors, and saves model objects plus aggregate estimate and sample-size tables
-inside `~/aou_bridge_mdd_work`.
+inside `~/aou_bridge_mdd_work`. The models retain every eligible complete case
+and do not cap fitted values. Modified-Poisson fitted values are retained as
+diagnostics and are not reported as individual predicted probabilities.
 
 Inspect at minimum:
 

@@ -7,10 +7,12 @@
 # selected. PSS-10, EDS-9, and ACE-11 are standardized in the same population.
 #
 # Primary adjustment includes age, sex at birth, and PC1-PC10. An additional
-# joint model adds the 0-5 chronic disease count. Sex-at-birth responses other
-# than Female or Male remain missing and are handled by each model's complete-
-# case selection. Income and education are not included in the current
-# specification.
+# joint model adjusts for chronic disease burden as categories 0, 1, 2, 3,
+# and 4 or more, with 0 as the reference. This avoids assuming that every
+# one-condition increase has the same association with MDD prevalence.
+# Sex-at-birth responses other than Female or Male remain missing and are
+# handled by each model's complete-case selection. Income and education are
+# not included in the current specification.
 
 if (!exists(".preflight_passed")) source("analysis/00_preflight.R")
 analytic_data <- load_component("07_analytic_data.rds")
@@ -26,13 +28,14 @@ primary_covariates <- c(
   "sex_at_birth",
   paste0("PC", 1:10)
 )
-additional_clinical_covariate <- "chronic_disease_count"
+additional_clinical_covariate <- "chronic_burden"
 
 required_columns <- c(
   outcome,
   "prs_mdd_div_adjusted",
   "prs_mdd_eur_adjusted",
   "genomic_ancestry",
+  "chronic_disease_count",
   unname(psychosocial_raw),
   primary_covariates
 )
@@ -57,6 +60,22 @@ analytic_data$sex_at_birth[
 analytic_data$sex_at_birth <- factor(
   analytic_data$sex_at_birth,
   levels = c("Female", "Male")
+)
+
+analytic_data$chronic_disease_count <- suppressWarnings(as.integer(
+  analytic_data$chronic_disease_count
+))
+if (anyNA(analytic_data$chronic_disease_count) ||
+    any(!analytic_data$chronic_disease_count %in% 0:5)) {
+  stop(
+    "chronic_disease_count must be a nonmissing integer from 0 through 5.",
+    call. = FALSE
+  )
+}
+analytic_data$chronic_burden <- factor(
+  pmin(analytic_data$chronic_disease_count, 4L),
+  levels = 0:4,
+  labels = c("0", "1", "2", "3", "4+")
 )
 
 scale_with_missing <- function(x, variable, population) {
@@ -173,13 +192,17 @@ fit_prevalence_ratio <- function(
     )
   }
 
+  fitted_prevalence <- stats::fitted(model)
+  fitted_above_one <- fitted_prevalence > 1
   samples <- data.frame(
     population = population,
     model_id = model_id,
     total_n = nrow(model_data),
     case_n = case_n,
     control_n = control_n,
-    maximum_fitted_prevalence = max(stats::fitted(model)),
+    fitted_prevalence_above_one_n = sum(fitted_above_one),
+    fitted_prevalence_above_one_percent = 100 * mean(fitted_above_one),
+    maximum_fitted_prevalence = max(fitted_prevalence),
     pearson_dispersion = sum(stats::residuals(model, type = "pearson")^2) /
       stats::df.residual(model)
   )
@@ -220,14 +243,14 @@ run_model_suite <- function(data, population, prs_column) {
 
   # Additional clinical adjustment requested by the group. This is not part
   # of the primary covariate set.
-  models$joint_plus_chronic_count <- fit_prevalence_ratio(
+  models$joint_plus_chronic_burden <- fit_prevalence_ratio(
     model_data,
     make_formula(c(
       joint_exposures,
       primary_covariates,
       additional_clinical_covariate
     )),
-    "joint_plus_chronic_count",
+    "joint_plus_chronic_burden",
     population,
     joint_exposures
   )
@@ -308,10 +331,12 @@ standardization_parameters <- do.call(
   rbind, lapply(analysis_results, `[[`, "standardization")
 )
 
-if (any(model_samples$maximum_fitted_prevalence > 1)) {
+if (any(model_samples$fitted_prevalence_above_one_n > 0L)) {
   warning(
     "At least one modified-Poisson model has fitted values above 1. ",
-    "Review 08_model_samples.csv before interpreting that specification."
+    "The fitted values are not capped or interpreted as individual predicted ",
+    "probabilities. Review 08_model_samples.csv before interpreting the ",
+    "prevalence-ratio estimates."
   )
 }
 
